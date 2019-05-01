@@ -9,26 +9,37 @@
 import UIKit
 import FirebaseDatabase
 
+//var postData = ["Message 1", "Message 2", "Message 3"]
+var selection:Int = 0
+var postData = [[String: String]]() // initialize as an array of dictionaries (key: value pairs)
+ var postKey = [String]()
 
 class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSource  {
-    
-    //var postData = ["Message 1", "Message 2", "Message 3"]
-    var postData = [String]()
-    var postKey = [String]()
-    var theKey = String()
+    var ref:DatabaseReference?
+    var databaseHandle:DatabaseHandle?
     
     @IBOutlet weak var textView: UITextView!
     
-    //adds the message, resigns keyboard, removes the text in textView
+    @IBOutlet weak var messageView: UITextView!
+    
+    //adds the subject and message, resigns keyboard, removes the text in textView
     @IBAction func addPost(_ sender: Any) {
-    ref?.child("Posts").childByAutoId().setValue(textView.text)
-    textView.resignFirstResponder()
-    textView.text = ""
+        //adds the message, resigns keyboard, removes the text in textView
+        let key = ref!.child("NewPosts").childByAutoId().key
+        // can include multiple nodes in this array
+        let post = [
+            "subject": textView.text,
+            "body": messageView.text]
+        let childUpdates = ["/NewPosts/\(key)": post]
+        ref!.updateChildValues(childUpdates)
+        // resign keyboard and reset both subject and message fields
+        textView.resignFirstResponder()
+        textView.text = ""
+        messageView.text = ""
     }
     
     @IBOutlet weak var tableView: UITableView!
-    var ref:DatabaseReference?
-    var databaseHandle:DatabaseHandle?
+    
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return postData.count
@@ -37,15 +48,14 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "PostCell")
-        cell?.textLabel?.text = postData[indexPath.row]
+        cell?.textLabel?.text = (postData[indexPath.row]["subject"] as! String)
         return cell!
     }
     
+    //Additional TableView functions to allow for editing/deleting
     func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
-    return true
-        
+        return true
     }
-    
     
     func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
         
@@ -54,16 +64,21 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
             //delete row from TableView
             tableView.deleteRows(at: [indexPath], with: .automatic)
             //get the key for the selected row
-            theKey = postKey[indexPath.row]
+            let theKey = postKey[indexPath.row]
             //remove the key and value from the array
             postData.remove(at: indexPath.row)
             postKey.remove(at: indexPath.row)
             
             //remove value from Firebase
-            ref?.child("Posts").child("\(theKey)").removeValue()
+            ref?.child("NewPosts").child("\(theKey)").removeValue()
             tableView.endUpdates()
         }
     }
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        selection = indexPath.row
+        performSegue(withIdentifier: "TheSegue", sender: self)
+    }
+    
     
     
     override func viewDidLoad() {
@@ -72,23 +87,29 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         tableView.delegate = self
         tableView.dataSource = self
         // focus the cursor in the TextView
-        textView.becomeFirstResponder()
-       
-        //Important: this allows the swipe-for-delete feature
-        tableView.allowsMultipleSelectionDuringEditing = true
         
+        // focus the cursor in the TextView
+        textView.becomeFirstResponder()
+        
+        tableView.allowsMultipleSelectionDuringEditing = true
+        // set firebase reference
         ref=Database.database().reference()
         
         //retrieve posts and listen for changes
-        databaseHandle = ref?.child("Posts").observe(.childAdded, with: { (snapshot) in
-            //code to execute when a child is added
-            //take the value and key from snapshot, add to postData and postKey arrays
-            
-            let post = snapshot.value as! String
-            self.postData.append(post)
+        ref?.child("NewPosts").observe(.childAdded, with:  {
+            (snapshot) in
+            //let post = snapshot.value as? String
+            //var dictionary: [String:String]
+            //for child in snapshot.children {
             let key = snapshot.key
-            self.postKey.append(key)
+            let post = snapshot.value
+            postData.append(post as! [String : String])
+            postKey.append(key)
             self.tableView.reloadData()
+            print(postData)
         })
+        
+ 
     }
 }
+
