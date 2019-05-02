@@ -12,7 +12,6 @@ import FirebaseDatabase
 //var postData = ["Message 1", "Message 2", "Message 3"]
 var selection:Int = 0
 var postData = [[String: String]]() // initialize as an array of dictionaries (key: value pairs)
- var postKey = [String]()
 
 class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSource  {
     var ref:DatabaseReference?
@@ -64,11 +63,10 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
             //delete row from TableView
             tableView.deleteRows(at: [indexPath], with: .automatic)
             //get the key for the selected row
-            let theKey = postKey[indexPath.row]
+            let theKey = postData[indexPath.row]["id"]!
             //remove the key and value from the array
             postData.remove(at: indexPath.row)
-            postKey.remove(at: indexPath.row)
-            
+
             //remove value from Firebase
             ref?.child("NewPosts").child("\(theKey)").removeValue()
             tableView.endUpdates()
@@ -96,19 +94,15 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         ref=Database.database().reference()
         
         //retrieve posts and listen for changes
+        //retrieve posts and listen for changes
         ref?.child("NewPosts").observe(.childAdded, with:  {
             (snapshot) in
-            //let post = snapshot.value as? String
-            //var dictionary: [String:String]
-            //for child in snapshot.children {
             let key = snapshot.key
-            let post = snapshot.value
+            var post = snapshot.value as? [String: String]
+            post!["id"] = key
             postData.append(post as! [String : String])
-            postKey.append(key)
             self.tableView.reloadData()
-            print(postData)
-        })
-        
+        })      
  
     }
 }
